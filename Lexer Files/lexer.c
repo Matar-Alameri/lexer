@@ -8,6 +8,9 @@ int NumberKeywords = 21;
 const char* keywords[] = { "class" , "constructor" , "method", "function" , "int" ,
 	 "boolean" , "char" , "void" , "var", "static", "field" , "let" ,
 	  "do", "if", "else", "while", "return", "true", "false", "null", "this"};
+int NumberSymbols = 19;
+char symbols[] =  {'=', '+', '-', '*', '/', '&', '|', '<', '>', '~',
+	 '(', ')', '[', ']', '{', '}', ',', ';', '.'};
 FILE* f;
 int TokenReady; 
 Token t;
@@ -30,6 +33,13 @@ int IsKeyWord(char* str)
 {
 	for (int i = 0; i < NumberKeywords; i++)
 		if (!strcmp(keywords[i], str))
+			return 1;
+	return 0;
+}
+int IsSymbol(char str)
+{
+	for (int i = 0; i < NumberSymbols; i++)
+		if (symbols[i] == str)
 			return 1;
 	return 0;
 }
@@ -105,69 +115,93 @@ Token BuildToken()
 {
 
 	int c = EatWC();
+	char temp[128];
+	int i = 0;
+	while ((c = getc(f)) != EOF)
+	{
+		if (isalpha(c) || c == '_')
+		{
+			while (c != EOF && (isalpha(c) || c == '_' || isdigit(c)))
+			{
+				temp[i++] = c;
+				c = getc(f);
+			}
+			temp[i] = '\0';
+			ungetc(c, f);
 
+			strcpy(t.lx, temp);
+			if (IsKeyWord(temp))
+				t.tp = RESWORD;
+			else
+				t.tp = ID;
+			t.ln = LineCount;
+			return t;
+		}
+		else if (isdigit(c))
+		{
+			while (c != EOF && isdigit(c))
+			{
+				temp[i++] = c;
+				c = getc(f);
+			}
+			temp[i] = '\0';
+			ungetc(c, f);
+			strcpy(t.lx, temp);
+			t.tp = INT;
+			t.ln = LineCount;
+			return t;
+
+		}
+		
+		else if (c == '"')
+		{
+			c = getc(f);
+			while (c != '"')
+			{
+				if(c == '\n')
+				{
+					strcpy(t.lx, "Error: new line in string constant");
+					t.ln = LineCount;
+					t.tp = ERR;
+					return t;
+				}
+				else if(c == EOF)
+				{
+					strcpy(t.lx, "Error: unexpected eof in string constant");
+					t.ln = LineCount;
+					t.tp = ERR;
+					return t;
+				}
+				temp[i++] = c;
+				c = getc(f);
+			}
+			temp[i] = '\0';
+			strcpy(t.lx, temp);
+			t.tp = STRING;
+			t.ln = LineCount;
+			return t;
+		}
+		else
+		{
+			temp[0] = c;
+			temp[1] = '\0';
+			t.tp = ERR;
+			strcpy(t.lx, temp);
+			if (IsSymbol(c))
+				t.tp = SYMBOL;
+			else
+				strcpy(t.lx, "Error: illegal symbol in source file");
+			
+			t.ln = LineCount;
+			return t;
+		}
+	}//return t;
 	if (c == EOF)
 	{
 		t.tp = EOFile;
 		t.ln = LineCount;
 		return t;
 	}
-	char temp[128];
-	int i = 0;
-	if (isalpha(c) || c == '_')
-	{
-		c = getc(f);
-		while (c != EOF && (isalpha(c) || c == '_' || isdigit(c)))
-		{
-			temp[i++] = c;
-			c = getc(f);
-		}
-		temp[i] = '\0';
-		ungetc(c, f);
-
-		strcpy(t.lx, temp);
-		if (IsKeyWord(temp))
-			t.tp = RESWORD;
-		else
-			t.tp = ID;
-		t.ln = LineCount;
-		return t;
-	}
-	else if (isdigit(c))
-	{
-		while (c != EOF && isdigit(c))
-		{
-			temp[i++] = c;
-			c = getc(f);
-		}
-		strcpy(t.lx, temp);
-		t.tp = INT;
-		t.ln = LineCount;
-		return t;
-
-	}
-	else if (c == '"')
-	{
-		while (c != EOF && c != '\n' && c != '"')
-		{
-			temp[i++] = c;
-			c = getc(f);
-		}
-		strcpy(t.lx, temp);
-		t.tp = STRING;
-		t.ln = LineCount;
-		return t;	
-	}
-	else
-	{
-		temp[0] = c;
-		temp[1] = '\0';
-		strcpy(t.lx, temp);
-		t.tp = SYMBOL;
-		t.ln = LineCount;
-		return t;
-	}
-	//return t;
 }
 
 Token GetToken()
@@ -192,8 +226,9 @@ Token PeekToken()
 int main()
 {
 	
-	Init("OnlyComments.jack");
+	Init("Main.jack");
 	EatWC();
+	GetToken();
 	
 	
 
